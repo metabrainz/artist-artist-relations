@@ -2,7 +2,7 @@
 
 import sys
 import psycopg2
-from psycopg2.errors import OperationalError
+from psycopg2.errors import OperationalError, DuplicateTable
 
 ARTIST_MBIDS_TO_EXCLUDE = [
     'f731ccc4-e22a-43af-a747-64213329e088', # anonymous
@@ -48,19 +48,19 @@ def create_or_truncate_table(conn):
     try:
         with conn.cursor() as curs:
             curs.execute(CREATE_RELATIONS_TABLE_QUERY)
-    except psycopg2.OperationalError as err:
-     
+    except DuplicateTable as err:
+        conn.rollback() 
         try:
             with conn.cursor() as curs:
                 curs.execute(TRUNCATE_RELATIONS_TABLE_QUERY)
-        except psycopg2.OperationalError as err:
+        except OperationalError as err:
             print("failed to truncate existing table")
 
 
 def insert_artist_pairs(artists, relations):
     for a0 in artists:
         for a1 in artists:
-            if a0[0] == a1[0]:
+            if a0 == a1:
                 continue
 
             if a0 < a1:
@@ -110,18 +110,22 @@ def calculate_artist_similarities():
     artists = []
 
     print("query for va tracks")
-    with psycopg2.connect("dbname=musicbrainz_db user=musicbrainz host=localhost") as conn:
+    with psycopg2.connect('dbname=musicbrainz_db user=musicbrainz host=musicbrainz-docker_db_1 password=musicbrainz') as conn:
         with conn.cursor() as curs:
             count = 0
             curs.execute(CREATE_RELATIONS_ARTIST_CREDITS_QUERY)
             print("load va tracks")
-            for row in curs.fetchone():
-                if release_id != row['release_id'] and artists:
+            while True:
+                row = curs.fetchone()
+                if not row:
+                    break
+
+                if release_id != row[0] and artists:
                     insert_artist_pairs(artists, relations)
                     artists = []
 
-                artists.append(row['artist_credit_id'])
-                release_id = row['release_id']
+                artists.append(row[0])
+                release_id = row[0]
                 count += 1
 
         print("save relations to new table")
