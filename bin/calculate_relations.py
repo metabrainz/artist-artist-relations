@@ -40,11 +40,11 @@ TRUNCATE_RELATIONS_TABLE_QUERY = '''
 '''
 
 CREATE_INDEX_QUERIES = [ '''
-    CREATE INDEX artist_artist_relations_artist_credit_0 
+    CREATE INDEX artist_artist_relations_artist_credit_0_ndx 
               ON artist_artist_relations (artist_credit_0)
 ''',
 '''
-    CREATE INDEX artist_artist_relations_artist_credit_1 
+    CREATE INDEX artist_artist_relations_artist_credit_1_ndx 
               ON artist_artist_relations (artist_credit_1)
 ''']
 
@@ -57,11 +57,19 @@ def create_or_truncate_table(conn):
     try:
         with conn.cursor() as curs:
             curs.execute(CREATE_RELATIONS_TABLE_QUERY)
+
     except DuplicateTable as err:
         conn.rollback() 
         try:
             with conn.cursor() as curs:
                 curs.execute(TRUNCATE_RELATIONS_TABLE_QUERY)
+                conn.commit()
+
+            with conn.cursor() as curs:
+                curs.execute("DROP INDEX artist_artist_relations_artist_credit_0_ndx")
+                curs.execute("DROP INDEX artist_artist_relations_artist_credit_1_ndx")
+                conn.commit()
+
         except OperationalError as err:
             print("failed to truncate existing table")
 
@@ -69,7 +77,6 @@ def create_or_truncate_table(conn):
 def create_indexes(conn):
     try:
         with conn.cursor() as curs:
-            conn.begin()
             for query in CREATE_INDEX_QUERIES:
                 curs.execute(query)
             conn.commit()
