@@ -39,6 +39,15 @@ TRUNCATE_RELATIONS_TABLE_QUERY = '''
     TRUNCATE artist_artist_relations
 '''
 
+CREATE_INDEX_QUERIES = [ '''
+    CREATE INDEX artist_artist_relations_artist_credit_0 
+              ON artist_artist_relations (artist_credit_0)
+''',
+'''
+    CREATE INDEX artist_artist_relations_artist_credit_1 
+              ON artist_artist_relations (artist_credit_1)
+''']
+
 def create_schema():
     pass
 
@@ -57,7 +66,20 @@ def create_or_truncate_table(conn):
             print("failed to truncate existing table")
 
 
+def create_indexes(conn):
+    try:
+        with conn.cursor() as curs:
+            conn.begin()
+            for query in CREATE_INDEX_QUERIES:
+                curs.execute(query)
+            conn.commit()
+    except OperationalError as err:
+        conn.rollback()
+        print("creating indexes failed.")
+
+
 def insert_artist_pairs(artists, relations):
+   
     for a0 in artists:
         for a1 in artists:
             if a0 == a1:
@@ -75,7 +97,7 @@ def insert_artist_pairs(artists, relations):
 
 def insert_rows(curs, values):
 
-    query = "INSERT INTO artist_artist_relations VALUES " + join(",", values)
+    query = "INSERT INTO artist_artist_relations VALUES " + ",".join(values)
     try:
         curs.execute(query)
     except psycopg2.OperationalError as err:
@@ -93,13 +115,14 @@ def dump_similarities(conn, relations):
             r = relations[k]
             values.append("(%d, %d, %d)" % (r[0], r[1], r[2]))
 
-            if len(values > 1000):
+            if len(values) > 1000:
                 insert_rows(curs, values)
+                conn.commit()
                 values = []
 
         if len(values):
             insert_rows(curs, values)
-
+            conn.commit()
 
 
 
@@ -124,12 +147,14 @@ def calculate_artist_similarities():
                     insert_artist_pairs(artists, relations)
                     artists = []
 
-                artists.append(row[0])
+                artists.append(row[1])
                 release_id = row[0]
                 count += 1
 
         print("save relations to new table")
         dump_similarities(conn, relations)
+        print("create indexes")
+        create_indexes(conn)
 
 
 if __name__ == "__main__":

@@ -4,4 +4,4 @@ docker build -f Dockerfile -t metabrainz/artist-relations .
 
 To run the script:
 
-docker run --network=musicbrainz-docker_default metabrainz/artist-relations
+docker run -it --network=musicbrainz-docker_default metabrainz/artist-relations
