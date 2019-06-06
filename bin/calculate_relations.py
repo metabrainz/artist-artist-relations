@@ -3,7 +3,7 @@
 import sys
 import pprint
 import psycopg2
-from psycopg2.errors import OperationalError, DuplicateTable
+from psycopg2.errors import OperationalError, DuplicateTable, UndefinedObject
 
 ARTIST_MBIDS_TO_EXCLUDE = [
     'f731ccc4-e22a-43af-a747-64213329e088', # anonymous
@@ -11,7 +11,7 @@ ARTIST_MBIDS_TO_EXCLUDE = [
 ]
 
 CREATE_RELATIONS_ARTISTS_QUERY = '''
-    SELECT DISTINCT r.id as release_id, a.id as artist_id
+    SELECT DISTINCT r.id as release_id, a.id as artist_id, a.gid as artist_mbid
       FROM release r
       JOIN medium m ON m.release = r.id AND r.artist_credit = 1
       JOIN track t ON t.medium = m.id
@@ -20,19 +20,11 @@ CREATE_RELATIONS_ARTISTS_QUERY = '''
       JOIN artist a ON acm.artist = a.id
 '''
 
-CREATE_RELATIONS_ARTIST_CREDITS_QUERY = '''
-    SELECT DISTINCT r.id as release_id, ac.id as artist_credit_id
-      FROM release r
-      JOIN medium m ON m.release = r.id AND r.artist_credit = 1
-      JOIN track t ON t.medium = m.id
-      JOIN artist_credit ac ON t.artist_credit = ac.id
-'''
-
 CREATE_RELATIONS_TABLE_QUERY = '''
     CREATE TABLE artist_artist_relations (
         count integer, 
-        artist_credit_0 integer, 
-        artist_credit_1 integer
+        artist_0 integer, 
+        artist_1 integer
     )
 '''
 
@@ -41,12 +33,12 @@ TRUNCATE_RELATIONS_TABLE_QUERY = '''
 '''
 
 CREATE_INDEX_QUERIES = [ '''
-    CREATE INDEX artist_artist_relations_artist_credit_0_ndx 
-              ON artist_artist_relations (artist_credit_0)
+    CREATE INDEX artist_artist_relations_artist_0_ndx 
+              ON artist_artist_relations (artist_0)
 ''',
 '''
-    CREATE INDEX artist_artist_relations_artist_credit_1_ndx 
-              ON artist_artist_relations (artist_credit_1)
+    CREATE INDEX artist_artist_relations_artist_1_ndx 
+              ON artist_artist_relations (artist_1)
 ''']
 
 def create_schema():
@@ -70,12 +62,21 @@ def create_or_truncate_table(conn):
 
             with conn.cursor() as curs:
                 print("drop indexes")
-                curs.execute("DROP INDEX artist_artist_relations_artist_credit_0_ndx")
-                curs.execute("DROP INDEX artist_artist_relations_artist_credit_1_ndx")
-                conn.commit()
+                try:
+                    curs.execute("DROP INDEX artist_artist_relations_artist_0_ndx")
+                    conn.commit()
+                except UndefinedObject as err:
+                    conn.rollback()
+
+                try:
+                    curs.execute("DROP INDEX artist_artist_relations_artist_1_ndx")
+                    conn.commit()
+                except UndefinedObject as err:
+                    conn.rollback()
 
         except OperationalError as err:
             print("failed to truncate existing table")
+            conn.rollback()
 
 
 def create_indexes(conn):
@@ -91,10 +92,6 @@ def create_indexes(conn):
 
 def insert_artist_pairs(artists, relations):
 
-    pp = pprint.PrettyPrinter(indent=4)
-    pp.pprint(artists)
-    print()
-   
     for a0 in artists:
         for a1 in artists:
             if a0 == a1:
@@ -128,7 +125,8 @@ def dump_similarities(conn, relations):
 
         for k in relations:
             r = relations[k]
-            values.append("(%d, %d, %d)" % (r[0], r[1], r[2]))
+            if r[0] > 2:
+                values.append("(%d, %d, %d)" % (r[0], r[1], r[2]))
 
             if len(values) > 1000:
                 insert_rows(curs, values)
@@ -151,12 +149,15 @@ def calculate_artist_similarities():
     with psycopg2.connect('dbname=musicbrainz_db user=musicbrainz host=musicbrainz-docker_db_1 password=musicbrainz') as conn:
         with conn.cursor() as curs:
             count = 0
-            curs.execute(CREATE_RELATIONS_ARTIST_CREDITS_QUERY)
+            curs.execute(CREATE_RELATIONS_ARTISTS_QUERY)
             print("load va tracks")
             while True:
                 row = curs.fetchone()
                 if not row:
                     break
+
+                if row[2] in ARTIST_MBIDS_TO_EXCLUDE:
+                    continue
 
                 if release_id != row[0] and artists:
                     insert_artist_pairs(artists, relations)
