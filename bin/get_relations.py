@@ -17,8 +17,8 @@ SELECT_RELATIONS_QUERY = '''
       FROM artist_artist_relations arr
       JOIN artist_credit ac0 ON arr.artist_credit_0 = ac0.id
       JOIN artist_credit ac1 ON arr.artist_credit_1 = ac1.id
-     WHERE arr.artist_credit_0 = %s
-        OR arr.artist_credit_1 = %s
+     WHERE (arr.artist_credit_0 = %s OR arr.artist_credit_1 = %s)
+       AND count > 2
   ORDER BY count desc
 '''
 
@@ -61,6 +61,9 @@ def get_artist_similarities(artist_credit_name):
 
 if __name__ == "__main__":
     relations = get_artist_similarities(sys.argv[1])
-    print("Related artists for '%s'" % relations['artist_credit_name'])
-    for relation in relations['relations']:
-        print("%5d %s" % (relation['count'], relation['artist_credit_name']))
+    if relations:
+        print("Related artists for '%s'" % relations['artist_credit_name'])
+        for relation in relations['relations']:
+            print("%5d %s" % (relation['count'], relation['artist_credit_name']))
+    else:
+        print("Found no relations for artist '%s'" % sys.argv[1])

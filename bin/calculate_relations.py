@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import pprint
 import psycopg2
 from psycopg2.errors import OperationalError, DuplicateTable
 
@@ -10,13 +11,13 @@ ARTIST_MBIDS_TO_EXCLUDE = [
 ]
 
 CREATE_RELATIONS_ARTISTS_QUERY = '''
-    SELECT DISTINCT r.gid as release_mbid, a.gid as artist_mbid, a.name as artist_name
+    SELECT DISTINCT r.id as release_id, a.id as artist_id
       FROM release r
       JOIN medium m ON m.release = r.id AND r.artist_credit = 1
       JOIN track t ON t.medium = m.id
       JOIN artist_credit ac ON t.artist_credit = ac.id
       JOIN artist_credit_name acm ON acm.artist_credit = ac.id
-      JOIN artist a ON acn.artist = a.id
+      JOIN artist a ON acm.artist = a.id
 '''
 
 CREATE_RELATIONS_ARTIST_CREDITS_QUERY = '''
@@ -56,16 +57,19 @@ def create_or_truncate_table(conn):
 
     try:
         with conn.cursor() as curs:
+            print("create table")
             curs.execute(CREATE_RELATIONS_TABLE_QUERY)
 
     except DuplicateTable as err:
         conn.rollback() 
         try:
             with conn.cursor() as curs:
+                print("truncate")
                 curs.execute(TRUNCATE_RELATIONS_TABLE_QUERY)
                 conn.commit()
 
             with conn.cursor() as curs:
+                print("drop indexes")
                 curs.execute("DROP INDEX artist_artist_relations_artist_credit_0_ndx")
                 curs.execute("DROP INDEX artist_artist_relations_artist_credit_1_ndx")
                 conn.commit()
@@ -86,6 +90,10 @@ def create_indexes(conn):
 
 
 def insert_artist_pairs(artists, relations):
+
+    pp = pprint.PrettyPrinter(indent=4)
+    pp.pprint(artists)
+    print()
    
     for a0 in artists:
         for a1 in artists:
