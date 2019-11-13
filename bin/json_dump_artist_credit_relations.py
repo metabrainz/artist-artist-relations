@@ -5,7 +5,7 @@ import json
 import psycopg2
 from psycopg2.errors import OperationalError, DuplicateTable
 
-DUMP_QUERY = '''SELECT count, a0.gid, a1.gid
+DUMP_QUERY = '''SELECT count, a0.gid, a0.name, a1.gid, a1.name
                   FROM artist_artist_relations arr
                   JOIN artist a0 ON arr.artist_0 = a0.id
                   JOIN artist a1 ON arr.artist_1 = a1.id
@@ -23,7 +23,9 @@ def dump_table():
                 print(json.dumps({
                     'count' : row[0],
                     'artist_mbid_0' : row[1],
-                    'artist_mbid_1' : row[2]
+                    'artist_name_0' : row[2],
+                    'artist_mbid_1' : row[3],
+                    'artist_name_1' : row[4]
                 }))
 
 

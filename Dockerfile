@@ -19,7 +19,4 @@ WORKDIR /code/relations
 COPY requirements.txt /code/relations
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Now install our code, which may change frequently
-COPY . /code/relations
-
-CMD /code/relations/bin/calculate_relations.py
+CMD /code/relations/bin/_dummy_loop.py
