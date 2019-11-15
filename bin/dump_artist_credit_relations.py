@@ -7,7 +7,7 @@ from psycopg2.errors import OperationalError, DuplicateTable
 import bz2
 import ujson
 
-DUMP_QUERY = '''SELECT count,
+DUMP_QUERY = '''SELECT CAST(count AS float) / (select max(count) from artist_credit_artist_credit_relations) as score,
                        ac0.id, string_agg(concat(acn0.name, acn0.join_phrase), ''),
                        ac1.id, string_agg(concat(acn1.name, acn1.join_phrase), '')
                   FROM artist_credit_artist_credit_relations arr
@@ -17,7 +17,7 @@ DUMP_QUERY = '''SELECT count,
                   JOIN artist_credit_name acn1 ON arr.artist_credit_1 = acn1.artist_credit
                  WHERE count > 3
               GROUP BY ac0.id, acn0.position, ac1.id, acn1.position, arr.count
-              LIMIT 1000
+              ORDER BY score DESC
              '''
 
 def dump_table(filename):
@@ -31,11 +31,11 @@ def dump_table(filename):
                         return None
 
                     f.write(ujson.dumps({
-                        'count' : row[0],
-                        'artist_credit_id_0' : row[1],
-                        'artist_credit_name_0' : row[2],
-                        'artist_credit_id_1' : row[3],
-                        'artist_credit_name_1' : row[4]
+                        'score' : row[0],
+                        'id_0' : row[1],
+                        'name_0' : row[2],
+                        'id_1' : row[3],
+                        'name_1' : row[4]
                     }) + "\n")
 
 
