@@ -30,13 +30,13 @@ def dump_table(filename):
                     if not row:
                         return None
 
-                    f.write(bytes(ujson.dumps({
+                    f.write(ujson.dumps({
                         'count' : row[0],
                         'artist_credit_id_0' : row[1],
                         'artist_credit_name_0' : row[2],
                         'artist_credit_id_1' : row[3],
                         'artist_credit_name_1' : row[4]
-                    }) + "\n", "utf-8"))
+                    }) + "\n")
 
 
 if __name__ == "__main__":
