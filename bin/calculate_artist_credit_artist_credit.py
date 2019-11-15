@@ -94,6 +94,9 @@ def insert_artist_credit_pairs(artist_credits, relations):
 
     for a0 in artist_credits:
         for a1 in artist_credits:
+            if a0 == 1 or a1 == 1:
+                continue 
+
             if a0 == a1:
                 continue
 
